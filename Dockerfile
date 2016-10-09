@@ -2,4 +2,5 @@
 FROM python:2
 RUN python -m easy_install redis hiredis
 #set a shared volume that points to this directory
-WORKDIR /src/app
+VOLUME ["C:\Users\vamsi\Do\redis-tutorials","/usr/src/app"]
+WORKDIR /usr/src/app
