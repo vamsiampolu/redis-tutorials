@@ -4,9 +4,11 @@ import redis
 ONE_WEEK_IN_SECONDS = 7 * 86400
 VOTE_SCORE = 432
 ARTICLES_PER_PAGE = 25
+UPVOTE = 'UPVOTE'
+DOWNVOTE = 'DOWNVOTE'
 
 #user can vote on an article
-def article_vote(conn,user,article):
+def article_vote(conn,user,type,article):
 	#article is a string that looks like `article:id`
 	cutoff = time.time() - ONE_WEEK_IN_SECONDS
 	#cutoff is a timestamp, we return if the timestamp on the article
@@ -19,8 +21,13 @@ def article_vote(conn,user,article):
 	#increment the score of the article
 	#increment the votes of the article
 	if conn.sadd('voted:' + article_id,user):
-		conn.zincrby('score:',article,VOTE_SCORE)
-		conn.hincrby(article,'votes',1)
+		if type == UPVOTE:
+			conn.zincrby('score:',article,VOTE_SCORE)
+			conn.hincrby(article,'votes',1)
+		elif type == DOWNVOTE:
+			conn.zincrby('score:',article,-VOTE_SCORE)
+			conn.hincrby(article,'votes',-1)
+
 
 #user can post a new article
 def article_post(conn,user,title,link):
