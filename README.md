@@ -33,4 +33,26 @@ Also, when we use `time.time()` in the examples in the first chapter, make sure 
 import time
 ```
 
+Also, when converting from `int` to `string`, use `str(integerValue)`.
+
+This is the code to test that the posts functionality is working correctly:
+
+```
+conn = redis.Redis()
+article_post(conn,'user1','Article1','http://user1/Article1')
+article_post(conn,'user2','Article2','http://user2/Article2')
+articles = get_articles(conn,1)
+print articles
+article_vote(conn,'user3','article:5')
+article_vote(conn,'user3','article:5')
+article_vote(conn,'user4','article:5')
+articles2 = get_articles(conn,1)
+print articles2
+add_remove_groups(conn,5,[1,2])
+add_remove_groups(conn,4,[2])
+add_remove_groups(conn,5,[],[2])
+articles_group2 = get_group_articles(conn,2,1,'score:')
+print articles_group2
+```
+
 ---

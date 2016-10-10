@@ -65,22 +65,18 @@ def get_articles(conn,page,order='score:'):
 #add article to groups and remove article from groups in to_add and to_remove respectively
 #an article can be part of multiple groups
 def add_remove_groups(conn,article_id,to_add=[],to_remove=[]):
-	article = 'article:'+ article_id
+	article = 'article:'+ str(article_id)
 	for group in to_add:
-		conn.sadd('group:' + group,article)
+		conn.sadd('group:' + str(group),article)
 	for group in to_remove:
-		conn.srem('group:' + group,article)
+		conn.srem('group:' + str(group),article)
 
 def get_group_articles(conn,group,page,order='score:'):
-	key = order + group
+	key = order + str(group)
 	if not conn.exists(key):
 		conn.zinterstore(key,
-			['group:' + group, order ],
+			['group:' + str(group), order ],
 			aggregate='max',
 		)
 		conn.expire(key,60)
 		return get_articles(conn,page,key)
-
-conn = redis.Redis()
-article_post(conn,'user1','Article1','http://user1/Article1')
-article_post(conn,'user2','Article2','http://user2/Article2')
