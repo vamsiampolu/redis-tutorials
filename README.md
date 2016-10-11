@@ -67,4 +67,8 @@ The type parameter can accept one of two values:
 
 if a `DOWNVOTE` is cast, the `elif` block comes into play, we still use `ZINCRBY` and `HINCRBY`, to decrement the values just pass them a `negative VOTE_SCORE` and `-1` respectively.
 
+```
+conn = redis.Redis()
+article_vote(conn,'user:7',DOWNVOTE,'article:5')
+```
 ---

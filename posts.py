@@ -7,41 +7,64 @@ ARTICLES_PER_PAGE = 25
 UPVOTE = 'UPVOTE'
 DOWNVOTE = 'DOWNVOTE'
 
+#a user who has already voted can change their vote
+def change_vote(conn,article,user,from_type,to_type):
+	article_id = article.partition(':')[-1]
+	upvoted = 'upvoted:' + article_id
+	downvoted = 'downvoted:' + article_id
+	if from_type == to_type:
+		return
+	elif from_type == UPVOTE and to_type == DOWNVOTE:
+		conn.srem(upvoted,user)
+		conn.sadd(downvoted,user)
+		conn.zincrby('score:',article, -2 * VOTE_SCORE)
+		conn.hincrby(article,'votes',-2)
+	elif from_type == DOWNVOTE and to_type == UPVOTE:
+		conn.srem(downvoted,user)
+		conn.sadd(upvoted,user)
+		conn.zincrby('score:',2 * VOTE_SCORE)
+		conn.hincrby(article,'votes',2)
+
 #user can vote on an article
 def article_vote(conn,user,type,article):
-	#article is a string that looks like `article:id`
 	cutoff = time.time() - ONE_WEEK_IN_SECONDS
-	#cutoff is a timestamp, we return if the timestamp on the article
-	#is smaller than the timestamp one week ago
 	if conn.zscore('time:',article) < cutoff:
 		return
 	article_id = article.partition(':')[-1]
-	#add user to the voted SET for the article
-	#if the user could be added successfully
-	#increment the score of the article
-	#increment the votes of the article
+	upvoted = 'upvoted:' + article_id
+	downvoted = 'downvoted:' + article_id
 	if conn.sadd('voted:' + article_id,user):
 		if type == UPVOTE:
 			conn.zincrby('score:',article,VOTE_SCORE)
 			conn.hincrby(article,'votes',1)
+			conn.sadd(upvoted,user)
 		elif type == DOWNVOTE:
 			conn.zincrby('score:',article,-VOTE_SCORE)
 			conn.hincrby(article,'votes',-1)
+			conn.sadd(downvoted,user)
+	else:
+		from_type = ''
+		if conn.sismember(upvoted,user):
+			from_type = UPVOTE
+		elif conn.sismember(downvoted,user):
+			from_type = DOWNVOTE
+		if(from_type != type):
+			change_vote(conn,article,user,from_type,type)
 
 
 #user can post a new article
 def article_post(conn,user,title,link):
-	#increment the article key to generate a new article_id
 	article_id = conn.incr('article:')
-	#create a voted set and add the user to it
-	#expire: the voted set must only remain in memory until a week
-	#article_id has to be converted to string
 	voted = 'voted:' + str(article_id)
+	upvoted = 'upvoted:' + str(article_id)
+	downvoted = 'downvoted:' + str(article_id)
 	conn.sadd(voted,user)
 	conn.expire(voted,ONE_WEEK_IN_SECONDS)
+	conn.sadd(upvoted,user)
+	conn.expire(upvoted,ONE_WEEK_IN_SECONDS)
+	conn.expire(downvoted,ONE_WEEK_IN_SECONDS)
 	now = time.time()
 	article = 'article:' + str(article_id)
-	#adding a hash to represent the article
 	conn.hmset(article,{
 		'title': title,
 		'link': link,
@@ -49,28 +72,21 @@ def article_post(conn,user,title,link):
 		'time': now,
 		'votes': 1
 	})
-	#add the score for the article
-	#add the time for the article
 	conn.zadd('score:',article,now + VOTE_SCORE)
 	conn.zadd('time:',article,now)
 	return article_id
 
-#get the most voted articles from this week
 def get_articles(conn,page,order='score:'):
 	start = (page - 1) * ARTICLES_PER_PAGE
 	end = start + ARTICLES_PER_PAGE - 1
-	#retrieve the articles by their score in descending order
 	ids = conn.zrevrange(order,start,end)
 	articles = []
-	#get each article by id and add it list
 	for id in ids:
 		article_data = conn.hgetall(id)
 		article_data['id'] = id
 		articles.append(article_data)
 	return articles
 
-#add article to groups and remove article from groups in to_add and to_remove respectively
-#an article can be part of multiple groups
 def add_remove_groups(conn,article_id,to_add=[],to_remove=[]):
 	article = 'article:'+ str(article_id)
 	for group in to_add:
